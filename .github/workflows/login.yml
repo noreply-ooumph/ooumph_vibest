@@ -1,0 +1,62 @@
+name: Login & Save Session
+
+on:
+  workflow_dispatch:
+
+jobs:
+  login:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install instagrapi python-dotenv --quiet
+
+      - name: Login and save session
+        env:
+          IG_USERNAME: ${{ secrets.IG_USERNAME }}
+          IG_PASSWORD: ${{ secrets.IG_PASSWORD }}
+        run: |
+          python -c "
+import os, json
+from instagrapi import Client
+from pathlib import Path
+
+username = os.environ['IG_USERNAME']
+password = os.environ['IG_PASSWORD']
+
+print(f'Logging in as {username}...')
+cl = Client()
+cl.delay_range = [1, 3]
+cl.login(username, password)
+print(f'Login OK  user_id={cl.user_id}')
+
+settings = cl.get_settings()
+Path('ig_settings.json').write_text(json.dumps({'_instagrapi': settings, 'user_id': str(cl.user_id)}, indent=2))
+print('ig_settings.json saved')
+"
+
+      - name: Commit session to repo
+        run: |
+          git config user.name  "vibestore-bot"
+          git config user.email "bot@vibestore.ooumph"
+          git add ig_settings.json
+          git diff --cached --quiet || git commit -m "bot: refresh session [skip ci]"
+          git push || true
+
+      - name: Update GitHub secret
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          gh secret set IG_SETTINGS_JSON --repo ${{ github.repository }} < ig_settings.json
+          echo "Secret updated"
