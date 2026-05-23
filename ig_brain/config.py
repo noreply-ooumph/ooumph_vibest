@@ -18,8 +18,8 @@ POSTS_PER_DAY    = 2
 
 # Comment reply settings
 REPLY_CHECK_INTERVAL = 300
-REPLY_SLEEP_MIN      = 20
-REPLY_SLEEP_MAX      = 50
+REPLY_SLEEP_MIN      = 5
+REPLY_SLEEP_MAX      = 15
 
 # Evolution
 EVOLUTION_AFTER_POSTS = 5
