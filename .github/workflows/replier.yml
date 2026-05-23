@@ -1,8 +1,6 @@
 name: Auto Reply Bot
 
 on:
-  schedule:
-    - cron: '*/5 * * * *'   # Backup cron — self-dispatch below is the primary trigger
   workflow_dispatch:
 
 jobs:

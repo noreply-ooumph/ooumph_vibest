@@ -95,11 +95,17 @@ def fetch_comments(post_code: str, session: requests.Session) -> list:
             node = e.get("node", {})
             owner = node.get("owner", {})
             uid   = str(owner.get("id", ""))
+            text  = node.get("text", "").strip()
+            # Skip own comments
             if uid == str(ACCOUNT_USER_ID):
-                continue   # skip own comments
+                continue
+            # Skip replies-to-replies: comments that @mention our account
+            # These are replies to our bot's comments, not original comments
+            if text.lower().startswith(f"@{ACCOUNT_USERNAME.lower()}"):
+                continue
             result.append({
                 "id":       str(node.get("id", "")),
-                "text":     node.get("text", ""),
+                "text":     text,
                 "username": owner.get("username", ""),
                 "user_id":  uid,
             })
