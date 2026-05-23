@@ -44,23 +44,18 @@ def load_web_session() -> requests.Session:
     return s
 
 def fetch_posts(session: requests.Session = None) -> list:
-    """Fetch posts — uses authenticated session if provided (needed on cloud IPs)."""
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36",
         "x-ig-app-id": "936619743392459",
         "Accept": "application/json",
     }
     url = f"https://www.instagram.com/api/v1/users/web_profile_info/?username={ACCOUNT_USERNAME}"
-
-    # Try with session cookies first (works on cloud IPs)
     if session:
         r = session.get(url, headers={**session.headers, **headers}, timeout=15)
     else:
         r = requests.get(url, headers=headers, timeout=15)
-
     if r.status_code != 200 or not r.content:
         raise ValueError(f"fetch_posts failed: status={r.status_code} len={len(r.content)}")
-
     data  = r.json()
     edges = data["data"]["user"]["edge_owner_to_timeline_media"]["edges"]
     return [
@@ -72,8 +67,86 @@ def fetch_posts(session: requests.Session = None) -> list:
         for e in edges
     ]
 
-def fetch_comments(post_code: str, session: requests.Session) -> list:
-    """Fetch comments via GraphQL — the only endpoint that works with web cookies."""
+def _filter_comments(raw: list) -> list:
+    result = []
+    for c in raw:
+        uid  = str(c.get("user_id", ""))
+        text = c.get("text", "").strip()
+        if uid == str(ACCOUNT_USER_ID):
+            continue
+        if text.lower().startswith(f"@{ACCOUNT_USERNAME.lower()}"):
+            continue
+        if c.get("already_replied"):
+            continue
+        result.append(c)
+    return result
+
+def _parse_v1_comments(data: dict) -> list:
+    out = []
+    for c in data.get("comments", []):
+        uid = str((c.get("user") or {}).get("pk", ""))
+        thread = c.get("child_comment_preview", {}).get("child_comments", [])
+        already = any(str((t.get("user") or {}).get("pk", "")) == str(ACCOUNT_USER_ID) for t in thread)
+        out.append({
+            "id":       str(c.get("pk", "")),
+            "text":     c.get("text", "").strip(),
+            "username": (c.get("user") or {}).get("username", ""),
+            "user_id":  uid,
+            "already_replied": already,
+        })
+    return _filter_comments(out)
+
+def _parse_graphql_comments(data: dict) -> list:
+    edges = (data.get("data", {})
+                 .get("shortcode_media", {})
+                 .get("edge_media_to_parent_comment", {})
+                 .get("edges", []))
+    out = []
+    for e in edges:
+        node  = e.get("node", {})
+        owner = node.get("owner", {})
+        uid   = str(owner.get("id", ""))
+        threaded = (node.get("edge_threaded_comments", {}).get("edges") or [])
+        already  = any(
+            str(rep.get("node", {}).get("owner", {}).get("id", "")) == str(ACCOUNT_USER_ID)
+            for rep in threaded
+        )
+        out.append({
+            "id":       str(node.get("id", "")),
+            "text":     node.get("text", "").strip(),
+            "username": owner.get("username", ""),
+            "user_id":  uid,
+            "already_replied": already,
+        })
+    return _filter_comments(out)
+
+def fetch_comments(post_code: str, session: requests.Session, post_id: str = "") -> list:
+    """Try v1 API first (more reliable on cloud IPs), fallback to GraphQL. Logs all errors."""
+    if post_id:
+        try:
+            r = session.get(
+                f"https://www.instagram.com/api/v1/media/{post_id}/comments/",
+                headers={**session.headers, "x-ig-app-id": "936619743392459"},
+                timeout=15,
+                allow_redirects=False,
+            )
+            print(f"    v1 status={r.status_code}", end="")
+            if r.status_code == 200:
+                comments = _parse_v1_comments(r.json())
+                print(f" -> {len(comments)} comments")
+                return comments
+            elif r.status_code in (301, 302):
+                loc = r.headers.get("Location", "")
+                print(f" -> CHECKPOINT redirect: {loc[:80]}")
+            else:
+                try:
+                    msg = r.json().get("message", r.text[:80])
+                except Exception:
+                    msg = r.text[:80]
+                print(f" -> error: {msg}")
+        except Exception as ex:
+            print(f"    v1 exception: {ex}")
+
     try:
         import urllib.parse
         variables = json.dumps({"shortcode": post_code, "first": 50})
@@ -82,43 +155,21 @@ def fetch_comments(post_code: str, session: requests.Session) -> list:
             "?query_hash=bc3296d1ce80a24b1b6e40b1e72903f5"
             f"&variables={urllib.parse.quote(variables)}"
         )
-        r = session.get(url, timeout=15)
-        if r.status_code != 200:
+        r = session.get(url, timeout=15, allow_redirects=False)
+        print(f"    graphql status={r.status_code}", end="")
+        if r.status_code == 200:
+            comments = _parse_graphql_comments(r.json())
+            print(f" -> {len(comments)} comments")
+            return comments
+        else:
+            try:
+                msg = r.json().get("message", r.text[:80])
+            except Exception:
+                msg = r.text[:80]
+            print(f" -> error: {msg}")
             return []
-        data  = r.json()
-        edges = (data.get("data", {})
-                     .get("shortcode_media", {})
-                     .get("edge_media_to_parent_comment", {})
-                     .get("edges", []))
-        result = []
-        for e in edges:
-            node = e.get("node", {})
-            owner = node.get("owner", {})
-            uid   = str(owner.get("id", ""))
-            text  = node.get("text", "").strip()
-            # Skip own comments
-            if uid == str(ACCOUNT_USER_ID):
-                continue
-            # Skip replies-to-replies: comments that @mention our account
-            if text.lower().startswith(f"@{ACCOUNT_USERNAME.lower()}"):
-                continue
-            # Skip if we already replied (threaded replies contain our user_id)
-            threaded = (node.get("edge_threaded_comments", {}).get("edges") or [])
-            already_replied = any(
-                str(r.get("node", {}).get("owner", {}).get("id", "")) == str(ACCOUNT_USER_ID)
-                for r in threaded
-            )
-            if already_replied:
-                continue
-            result.append({
-                "id":       str(node.get("id", "")),
-                "text":     text,
-                "username": owner.get("username", ""),
-                "user_id":  uid,
-            })
-        return result
     except Exception as ex:
-        print(f"  fetch_comments error: {ex}")
+        print(f"    graphql exception: {ex}")
         return []
 
 def generate_reply(client, comment: str, caption_hint: str) -> str:
@@ -138,48 +189,3 @@ def post_reply(session: requests.Session, post_id: str, comment_id: str, text: s
         timeout=15,
     )
     return r.status_code in (200, 201)
-
-
-def run_replier(client, check_interval: int = 300):
-    print(f"[REPLIER] Auto-reply started for @{ACCOUNT_USERNAME}")
-    replied = load_replied()
-    print(f"  {len(replied)} comments already replied to.\n")
-
-    while True:
-        try:
-            session = load_web_session()
-            posts   = fetch_posts(session)
-            print(f"[{time.strftime('%H:%M:%S')}] Checking {len(posts)} posts for new comments...")
-            new_replies = 0
-
-            for post in posts:
-                comments = fetch_comments(post["code"], session)
-                new_comments = [c for c in comments if str(c["id"]) not in replied and c["text"].strip()]
-
-                for c in new_comments:
-                    print(f"\n  @{c['username']}: {c['text'][:60]}")
-                    try:
-                        reply = generate_reply(client, c["text"], post["caption"])
-                        print(f"  Reply: {reply}")
-                        ok = post_reply(session, post["id"], c["id"], reply)
-                        if ok:
-                            replied.add(str(c["id"]))
-                            save_replied(replied)
-                            new_replies += 1
-                            print(f"  Replied OK.")
-                        time.sleep(random.randint(REPLY_SLEEP_MIN, REPLY_SLEEP_MAX))
-                    except Exception as e:
-                        print(f"  Reply error: {e}")
-                        time.sleep(20)
-
-            if new_replies == 0:
-                print(f"  No new comments. Next check in {check_interval//60} min.")
-
-        except KeyboardInterrupt:
-            print("\n[REPLIER] Stopped.")
-            break
-        except Exception as e:
-            print(f"[REPLIER] Error: {e}")
-            time.sleep(60)
-
-        time.sleep(check_interval)

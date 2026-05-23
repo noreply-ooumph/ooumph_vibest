@@ -66,7 +66,8 @@ for check_num in range(1, CHECKS + 1):
         new_total = 0
 
         for post in posts:
-            comments = fetch_comments(post["code"], session)
+            print(f"  Checking post {post['code']}...")
+            comments = fetch_comments(post["code"], session, post_id=post.get("id", ""))
             new      = [c for c in comments if str(c["id"]) not in replied and c["text"].strip()]
 
             for c in new:
