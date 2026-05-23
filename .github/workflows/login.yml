@@ -35,7 +35,7 @@ jobs:
         run: |
           git config user.name  "vibestore-bot"
           git config user.email "bot@vibestore.ooumph"
-          git add ig_settings.json
+          git add -f ig_settings.json
           git diff --cached --quiet || git commit -m "bot: refresh session [skip ci]"
           git push || true
 
