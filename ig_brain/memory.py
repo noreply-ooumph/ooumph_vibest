@@ -13,7 +13,7 @@ def load_memory() -> dict:
         "total_posts": 0,
         "total_comments_replied": 0,
         "top_performing_topics": [],
-        "strategy_notes": "Post AI mythology, history, and cinematic storytelling content that feels epic and emotional.",
+        "strategy_notes": "Post trendy lifestyle products, fashion finds, home decor, and gadget content that feels aspirational and shoppable.",
         "evolution_log": [],
         "last_evolved": None,
     }
@@ -68,9 +68,9 @@ def evolve_strategy(client) -> str:
         model="claude-haiku-4-5-20251001",
         max_tokens=400,
         system=(
-            "You are an Instagram growth strategist for story.matters_, an AI storytelling account. "
+            "You are an Instagram growth strategist for vibestore.ooumph, a trendy lifestyle and product curation account. "
             "Analyze post performance and write an updated strategy in 3-5 bullet points. "
-            "Focus on topics, formats, and hooks that drive most engagement."
+            "Focus on fashion, home decor, gadget, and lifestyle topics that drive most engagement and saves."
         ),
         messages=[{"role": "user", "content": f"Recent performance:\n{summary}\n\nWrite updated strategy:"}]
     )

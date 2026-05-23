@@ -9,18 +9,18 @@ from .memory import load_memory
 def pick_hashtags(topic: str, count: int = 25) -> list:
     t = topic.lower()
     pool = []
-    if any(w in t for w in ["myth","mahab","ramay","vedic","hindu","epic","sacred","symbol","devotion"]):
-        pool += HASHTAG_POOLS["mythology"]
-    if any(w in t for w in ["history","ancient","nalanda","civiliz","war","king","empire","lost"]):
-        pool += HASHTAG_POOLS["history"]
-    if any(w in t for w in ["ai","artificial","generat","tech","future","digital"]):
-        pool += HASHTAG_POOLS["ai"]
-    if any(w in t for w in ["animal","hybrid","wildlife","nature","shark","horse"]):
-        pool += HASHTAG_POOLS["animals"]
-    if any(w in t for w in ["philosoph","wisdom","conscious","soul","spirit","meaning"]):
-        pool += HASHTAG_POOLS["philosophy"]
-    pool += HASHTAG_POOLS["storytelling"]
-    pool += HASHTAG_POOLS["general"]
+    if any(w in t for w in ["fashion","style","ootd","outfit","wear","cloth","streetwear","fit"]):
+        pool += HASHTAG_POOLS.get("fashion", [])
+    if any(w in t for w in ["home","decor","interior","room","aesthetic","cozy","minimal","living"]):
+        pool += HASHTAG_POOLS.get("homedecor", [])
+    if any(w in t for w in ["gadget","tech","cool","product","device","accessory","innovation"]):
+        pool += HASHTAG_POOLS.get("gadgets", [])
+    if any(w in t for w in ["shop","buy","find","gift","collection","limited","edition","unbox"]):
+        pool += HASHTAG_POOLS.get("shopping", [])
+    if any(w in t for w in ["lifestyle","vibe","aesthetic","self","wellness","care","upgrade"]):
+        pool += HASHTAG_POOLS.get("lifestyle", [])
+    pool += HASHTAG_POOLS.get("products", [])
+    pool += HASHTAG_POOLS.get("general", [])
     seen, out = set(), []
     for tag in pool:
         if tag not in seen:
@@ -34,16 +34,16 @@ def generate_seo_caption(client, topic: str, pillar: str) -> str:
     strategy = mem.get("strategy_notes", "")
 
     resp = client.messages.create(
-        model="claude-sonnet-4-5",
-        max_tokens=600,
+        model="claude-haiku-4-5-20251001",
+        max_tokens=700,
         system=(
-            "You are an expert Instagram SEO and AEO content writer for story.matters_, "
-            f"an AI storytelling account. Niche: {ACCOUNT_NICHE}\n\n"
-            "SEO Rules: First line = powerful hook (shown in feed before 'more'). "
-            "Include 2-3 natural keyword phrases. Short paragraphs.\n\n"
-            "AEO Rules (for Google SGE, Perplexity, ChatGPT): Include a direct factual statement early. "
-            "Structure: Hook → Facts → Story → Insight → CTA.\n\n"
-            "Format: 150-250 words. Natural emojis. End with 1 engaging question. NO hashtags."
+            "You are an expert Instagram SEO and AEO content writer for vibestore.ooumph, "
+            f"a trendy lifestyle and product curation account. Niche: {ACCOUNT_NICHE}\n\n"
+            "SEO Rules: First line = scroll-stopping lifestyle hook. Short punchy paragraphs.\n\n"
+            "AEO Rules: Include a product insight or lifestyle fact early. "
+            "Structure: Hook → Product/Lifestyle angle → Why it matters → CTA.\n\n"
+            "Tone: cool curator — enthusiastic, trendy, aspirational but relatable. "
+            "Format: 100-200 words. Fun emojis. End with 1 engaging question. NO hashtags."
         ),
         messages=[{"role": "user", "content": (
             f"Topic: {topic}\nPillar: {pillar}\nStrategy: {strategy}\n\nWrite the Instagram caption:"
@@ -59,8 +59,8 @@ def generate_image_prompt(client, topic: str) -> str:
         system="Write only a FLUX/Stable Diffusion image generation prompt. 2-3 sentences. No explanation.",
         messages=[{"role": "user", "content": (
             f"Topic: {topic}\n"
-            "Style: cinematic, epic, dramatic lighting, dark atmosphere, hyper-detailed, "
-            "AI art style, suitable for Instagram storytelling account. Square 1:1 composition. No text."
+            "Style: clean product photography aesthetic, bright natural lighting, minimal background, "
+            "trendy lifestyle vibes, Instagram-worthy, square 1:1 composition. No text in image."
         )}]
     )
     return resp.content[0].text.strip()
