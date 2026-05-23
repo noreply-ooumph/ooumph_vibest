@@ -1,0 +1,12 @@
+# Never push these
+.env
+ig_settings.json
+generated_images/
+__pycache__/
+*.pyc
+brain_log.txt
+brain_err.txt
+bot_log.txt
+direct_out.txt
+direct_err.txt
+downloads/

@@ -1,0 +1,47 @@
+name: Auto Reply Bot
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'   # GitHub minimum is 5 min — we loop inside every 1 min
+  workflow_dispatch:          # manual trigger from GitHub UI
+
+jobs:
+  reply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install anthropic groq instagrapi python-dotenv requests Pillow --quiet
+
+      - name: Write credentials
+        env:
+          IG_SETTINGS_JSON: ${{ secrets.IG_SETTINGS_JSON }}
+        run: |
+          printf 'IG_USERNAME=%s\nIG_PASSWORD=%s\nIG_SESSION_FILE=ig_settings.json\nANTHROPIC_API_KEY=%s\nGROQ_API_KEY=%s\n' \
+            '${{ secrets.IG_USERNAME }}' '${{ secrets.IG_PASSWORD }}' \
+            '${{ secrets.ANTHROPIC_API_KEY }}' '${{ secrets.GROQ_API_KEY }}' > .env
+          printf '%s' "$IG_SETTINGS_JSON" > ig_settings.json
+          echo "ig_settings.json size: $(wc -c < ig_settings.json) bytes"
+          python -c "import json,sys; json.load(open('ig_settings.json')); print('ig_settings.json: valid JSON')"
+
+      - name: Run replier loop (checks every 1 min for 5 min)
+        run: python -u gh_replier_loop.py
+
+      - name: Save state back to repo
+        run: |
+          git config user.name  "story-matters-bot"
+          git config user.email "bot@story.matters"
+          git add replied_comments.json brain_memory.json ig_settings.json posts_list.json 2>/dev/null || true
+          git diff --cached --quiet || git commit -m "bot: update reply state [skip ci]"
+          git push || true
