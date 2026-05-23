@@ -100,8 +100,15 @@ def fetch_comments(post_code: str, session: requests.Session) -> list:
             if uid == str(ACCOUNT_USER_ID):
                 continue
             # Skip replies-to-replies: comments that @mention our account
-            # These are replies to our bot's comments, not original comments
             if text.lower().startswith(f"@{ACCOUNT_USERNAME.lower()}"):
+                continue
+            # Skip if we already replied (threaded replies contain our user_id)
+            threaded = (node.get("edge_threaded_comments", {}).get("edges") or [])
+            already_replied = any(
+                str(r.get("node", {}).get("owner", {}).get("id", "")) == str(ACCOUNT_USER_ID)
+                for r in threaded
+            )
+            if already_replied:
                 continue
             result.append({
                 "id":       str(node.get("id", "")),
