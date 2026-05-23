@@ -1,0 +1,58 @@
+{
+  "uuids": {
+    "phone_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    "uuid": "aaaaaaaa-bbbb-cccc-dddd-ffffffffffff",
+    "client_session_id": "aaaaaaaa-bbbb-cccc-dddd-111111111111",
+    "advertising_id": "aaaaaaaa-bbbb-cccc-dddd-222222222222",
+    "android_device_id": "android-b37e3d5c77f00e64",
+    "request_id": "85583b53-ce80-4d02-a7b9-677ef74fb2e8",
+    "tray_session_id": "9120330b-9136-41fc-b497-5d1400e604cb"
+  },
+  "mid": "aeNELgALAAFnUaY9CQSLPd8vQi5Y",
+  "ig_u_rur": null,
+  "ig_www_claim": null,
+  "authorization_data": {},
+  "cookies": {
+    "datr": "LkTjacJL5YDwK3-GOn2JSueN",
+    "ig_did": "41ECD5E1-B61F-406A-88A9-16FD3F4BE39E",
+    "mid": "aeNELgALAAFnUaY9CQSLPd8vQi5Y",
+    "dpr": "1.3375000953674316",
+    "ps_l": "1",
+    "ps_n": "1",
+    "csrftoken": "7pKQdeggiVFGf4trnTMqUzbWK6xkNGLr",
+    "ig_nrcb": "1",
+    "ds_user_id": "62914966683",
+    "sessionid": "62914966683:WcNytlBB5pQuyQ:0:AYhWlgnrPNIoQwe-kwSyL7qSoHp5ZTbKvFnEQ3z9rw",
+    "rur": "HIL054629149666830541811052474:01fe72c77e5fff8e03e4d510104842c03273343468c0a1ba635a12064e28da5939a82dd3",
+    "wd": "1057x719"
+  },
+  "last_login": 1716000000.0,
+  "device_settings": {
+    "app_version": "269.0.0.18.75",
+    "android_version": 26,
+    "android_release": "8.0.0",
+    "dpi": "480dpi",
+    "resolution": "1080x1920",
+    "manufacturer": "OnePlus",
+    "device": "OnePlus3T",
+    "model": "ONEPLUS A3010",
+    "cpu": "qcom",
+    "version_code": "314665256"
+  },
+  "user_agent": "Instagram 269.0.0.18.75 Android (26/8.0.0; 480dpi; 1080x1920; OnePlus; OnePlus3T; ONEPLUS A3010; qcom; en_US; 314665256)",
+  "country": "IN",
+  "country_code": 91,
+  "locale": "en_US",
+  "timezone_offset": 19800,
+  "request_timeout": 1,
+  "public_request_retries_count": 3,
+  "public_request_retries_timeout": 10,
+  "session_retry_total": 5,
+  "session_retry_backoff_factor": 0.2,
+  "session_retry_statuses": [
+    500,
+    502,
+    503,
+    504
+  ]
+}
