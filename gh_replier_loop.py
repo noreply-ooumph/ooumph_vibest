@@ -128,3 +128,11 @@ for check_num in range(1, CHECKS + 1):
         time.sleep(INTERVAL)
 
 print(f"\n[REPLIER] Loop complete.")
+
+# Save updated session so tokens stay fresh for next run
+try:
+    updated = {"_instagrapi": cl.get_settings(), "user_id": str(cl.user_id)}
+    SETTINGS_FILE.write_text(json.dumps(updated, indent=2))
+    print("[REPLIER] Session state saved.")
+except Exception as e:
+    print(f"[REPLIER] Warning: session save failed: {e}")

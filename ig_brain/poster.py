@@ -12,6 +12,8 @@ from .config import EVOLUTION_AFTER_POSTS
 
 
 def get_client() -> Client:
+    import sys
+    from instagrapi.exceptions import LoginRequired, ChallengeRequired
     cl = Client()
     cl.delay_range = [1, 3]
     settings_path = Path(__file__).parent.parent / "ig_settings.json"
@@ -19,6 +21,15 @@ def get_client() -> Client:
     if "_instagrapi" in settings:
         cl.set_settings(settings["_instagrapi"])
         print(f"  Session loaded for user_id={settings.get('user_id', '?')}")
+        try:
+            info = cl.account_info()
+            print(f"  Session valid — @{info.username}")
+        except (LoginRequired, ChallengeRequired) as e:
+            print(f"  Session EXPIRED: {e}")
+            print("  --> login.yml will be triggered by poster.yml on exit code 2")
+            sys.exit(2)
+        except Exception as e:
+            print(f"  Session validation warning: {e} — continuing anyway")
     else:
         cl.login(
             os.environ.get("IG_USERNAME", ACCOUNT_USERNAME),
@@ -48,6 +59,13 @@ def run_poster(client, topic_data: dict):
     shortcode = media.code
     post_id   = str(media.pk)
     print(f"  Posted! https://www.instagram.com/p/{shortcode}/")
+
+    # Save refreshed session tokens
+    try:
+        updated = {"_instagrapi": cl.get_settings(), "user_id": str(cl.user_id)}
+        (Path(__file__).parent.parent / "ig_settings.json").write_text(json.dumps(updated, indent=2))
+    except Exception:
+        pass
 
     record_post(post_id, shortcode, topic, caption, hashtags)
     if len(load_posted()) % EVOLUTION_AFTER_POSTS == 0:

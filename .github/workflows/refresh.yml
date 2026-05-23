@@ -1,0 +1,92 @@
+name: Weekly Session Refresh
+
+on:
+  schedule:
+    - cron: '0 2 * * 1'   # Every Monday 2am UTC
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install instagrapi --quiet
+
+      - name: Write session file
+        env:
+          IG_SETTINGS_JSON: ${{ secrets.IG_SETTINGS_JSON }}
+        run: printf '%s' "$IG_SETTINGS_JSON" > ig_settings.json
+
+      - name: Touch session and save refreshed tokens
+        id: touch
+        run: |
+          set +e
+          python - <<'EOF'
+          import json, sys
+          from instagrapi import Client
+          from instagrapi.exceptions import LoginRequired, ChallengeRequired
+          from pathlib import Path
+
+          settings = json.loads(Path("ig_settings.json").read_text())
+          if "_instagrapi" not in settings:
+              print("No _instagrapi key — session needs fresh login")
+              sys.exit(2)
+
+          cl = Client()
+          cl.delay_range = [1, 3]
+          cl.set_settings(settings["_instagrapi"])
+          try:
+              info = cl.account_info()
+              print(f"Session valid — @{info.username}")
+              data = {"_instagrapi": cl.get_settings(), "user_id": str(cl.user_id)}
+              Path("ig_settings.json").write_text(json.dumps(data, indent=2))
+              print("Session refreshed and saved")
+          except (LoginRequired, ChallengeRequired) as e:
+              print(f"Session expired: {e}")
+              sys.exit(2)
+          except Exception as e:
+              print(f"Warning: {e}")
+          EOF
+          EXIT=$?
+          echo "exit_code=$EXIT" >> $GITHUB_OUTPUT
+          exit $EXIT
+        continue-on-error: true
+
+      - name: Update session secret
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          python -c "import json; d=json.load(open('ig_settings.json')); exit(0 if '_instagrapi' in d else 1)" 2>/dev/null && \
+            gh secret set IG_SETTINGS_JSON --repo ${{ github.repository }} < ig_settings.json || true
+
+      - name: Trigger login refresh if session expired
+        if: steps.touch.outputs.exit_code == '2'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          echo "Session expired — triggering login.yml for fresh login"
+          gh workflow run login.yml --repo ${{ github.repository }} || true
+
+      - name: Ensure replier is running
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          RUNNING=$(gh run list --workflow=replier.yml --repo ${{ github.repository }} --status in_progress --limit 5 --json status | python -c "import json,sys; runs=json.load(sys.stdin); print(len(runs))")
+          if [ "$RUNNING" -lt "1" ]; then
+            echo "Replier not running — restarting"
+            gh workflow run replier.yml --repo ${{ github.repository }} || true
+          else
+            echo "Replier already running ($RUNNING active) — OK"
+          fi

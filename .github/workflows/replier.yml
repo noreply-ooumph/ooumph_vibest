@@ -1,4 +1,4 @@
-﻿name: Auto Reply Bot
+name: Auto Reply Bot
 
 on:
   workflow_dispatch:
@@ -6,7 +6,7 @@ on:
 jobs:
   reply:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 16
 
     steps:
       - name: Checkout repo
@@ -33,20 +33,43 @@ jobs:
           python -c "import json; json.load(open('ig_settings.json')); print('ig_settings.json: valid JSON')"
 
       - name: Run replier loop
-        run: python -u gh_replier_loop.py
-
-      - name: Save state back to repo
+        id: replier
         run: |
-          git config user.name  "vibestore-bot"
+          set +e
+          python -u gh_replier_loop.py
+          EXIT=$?
+          echo "exit_code=$EXIT" >> $GITHUB_OUTPUT
+          exit $EXIT
+        continue-on-error: true
+
+      - name: Save replied state + updated session
+        run: |
+          git config user.name  "vibest-bot"
           git config user.email "bot@ooumph.com"
-          git add replied_comments.json brain_memory.json ig_settings.json posts_list.json 2>/dev/null || true
+          git add -f replied_comments.json ig_settings.json 2>/dev/null || true
           git diff --cached --quiet || git commit -m "bot: update reply state [skip ci]"
+          git stash 2>/dev/null || true
+          git pull --rebase origin main || true
+          git stash pop 2>/dev/null || true
           git push || true
 
-      - name: Trigger next run in 5 minutes
+      - name: Update session secret with refreshed tokens
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          sleep 10
-          gh workflow run replier.yml --repo ${{ github.repository }} || true
+          python -c "import json; d=json.load(open('ig_settings.json')); exit(0 if '_instagrapi' in d else 1)" 2>/dev/null && \
+            gh secret set IG_SETTINGS_JSON --repo ${{ github.repository }} < ig_settings.json || true
 
+      - name: Trigger next run OR refresh login on session failure
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          EXIT_CODE="${{ steps.replier.outputs.exit_code }}"
+          if [ "$EXIT_CODE" = "2" ]; then
+            echo "Session expired — triggering login.yml to refresh"
+            gh workflow run login.yml --repo ${{ github.repository }} || true
+          else
+            echo "Triggering next replier cycle"
+            sleep 10
+            gh workflow run replier.yml --repo ${{ github.repository }} || true
+          fi

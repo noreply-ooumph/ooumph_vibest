@@ -1,8 +1,8 @@
-﻿name: Auto Poster Bot
+name: Auto Poster Bot
 
 on:
   schedule:
-    - cron: '0 3,7,12,15 * * *'   # UTC = 9am, 1pm, 6pm, 9pm IST (IST = UTC+5:30)
+    - cron: '0 3,7,12,15 * * *'   # UTC = 9am, 1pm, 6pm, 9pm IST
   workflow_dispatch:
 
 jobs:
@@ -32,18 +32,40 @@ jobs:
             '${{ secrets.IG_USERNAME }}' '${{ secrets.IG_PASSWORD }}' \
             '${{ secrets.ANTHROPIC_API_KEY }}' '${{ secrets.GROQ_API_KEY }}' > .env
           printf '%s' "$IG_SETTINGS_JSON" > ig_settings.json
-          echo "ig_settings.json size: $(wc -c < ig_settings.json) bytes"
-          python -c "import json,sys; json.load(open('ig_settings.json')); print('ig_settings.json: valid JSON')"
+          python -c "import json; json.load(open('ig_settings.json')); print('ig_settings.json: valid JSON')"
 
       - name: Run poster
-        run: python -u pa_poster.py
+        id: poster
+        run: |
+          set +e
+          python -u pa_poster.py
+          EXIT=$?
+          echo "exit_code=$EXIT" >> $GITHUB_OUTPUT
+          exit $EXIT
+        continue-on-error: true
 
       - name: Save state back to repo
         run: |
-          git config user.name  "story-matters-bot"
-          git config user.email "bot@story.matters"
+          git config user.name  "vibest-bot"
+          git config user.email "bot@ooumph.com"
           git add -f posted_content.json content_plan.json brain_memory.json ig_settings.json posts_list.json 2>/dev/null || true
           git diff --cached --quiet || git commit -m "bot: new post published [skip ci]"
-          git stash 2>/dev/null || true; git pull --rebase origin main || true; git stash pop 2>/dev/null || true; git push || true
+          git stash 2>/dev/null || true
+          git pull --rebase origin main || true
+          git stash pop 2>/dev/null || true
+          git push || true
 
+      - name: Update session secret with refreshed tokens
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          python -c "import json; d=json.load(open('ig_settings.json')); exit(0 if '_instagrapi' in d else 1)" 2>/dev/null && \
+            gh secret set IG_SETTINGS_JSON --repo ${{ github.repository }} < ig_settings.json || true
 
+      - name: Trigger login refresh on session failure
+        if: steps.poster.outputs.exit_code == '2'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          echo "Poster session expired — triggering login.yml"
+          gh workflow run login.yml --repo ${{ github.repository }} || true
