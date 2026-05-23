@@ -47,5 +47,5 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          sleep 240
+          sleep 10
           gh workflow run replier.yml --repo ${{ github.repository }} || true
