@@ -59,7 +59,9 @@ def generate_reply_text(client_ai, comment: str, caption: str) -> str:
     return resp.content[0].text.strip().strip('"').strip("'")
 
 client_ai = GroqClientWrapper(api_key=GROQ_KEY)
-CHECKS = 5
+CHECKS        = 3    # 3 checks x 60s = 3 min window
+MAX_POSTS     = 3    # only scan the 3 most recent posts
+MAX_ERRORS    = 2    # stop immediately after this many rate-limit errors
 INTERVAL = 60
 
 print(f"[REPLIER] Starting: {CHECKS} checks x {INTERVAL}s")
@@ -77,7 +79,12 @@ for check_num in range(1, CHECKS + 1):
     posts   = load_posts()
     new_total = 0
 
-    for post in posts:
+    error_count = 0
+    for post in posts[:MAX_POSTS]:
+        if error_count >= MAX_ERRORS:
+            print(f"  Rate-limit threshold hit — stopping this run to protect the account.")
+            break
+
         print(f"  Post {post['code']}...", end="")
         try:
             comments = cl.media_comments(post["id"], amount=50)
@@ -118,11 +125,18 @@ for check_num in range(1, CHECKS + 1):
 
         except (LoginRequired, ChallengeRequired) as e:
             print(f"\n  SESSION ERROR: {e}")
-            break
+            sys.exit(2)
         except Exception as e:
-            print(f" error: {e}")
+            err_str = str(e)
+            print(f" error: {err_str[:80]}")
+            if "feedback_required" in err_str or "Please wait" in err_str or "401" in err_str:
+                error_count += 1
+                print(f"  Rate-limit detected ({error_count}/{MAX_ERRORS}) — skipping remaining posts.")
 
     print(f"  Done. Replied to {new_total} new comments this check.")
+    if error_count >= MAX_ERRORS:
+        print(f"  Exiting early to avoid further rate-limiting.")
+        break
     if check_num < CHECKS:
         print(f"  Waiting {INTERVAL}s...")
         time.sleep(INTERVAL)
