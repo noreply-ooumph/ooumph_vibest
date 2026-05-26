@@ -1,6 +1,8 @@
 name: Auto Reply Bot
 
 on:
+  schedule:
+    - cron: '*/30 * * * *'   # every 30 minutes
   workflow_dispatch:
 
 jobs:
@@ -60,7 +62,7 @@ jobs:
           python -c "import json; d=json.load(open('ig_settings.json')); exit(0 if '_instagrapi' in d else 1)" 2>/dev/null && \
             gh secret set IG_SETTINGS_JSON --repo ${{ github.repository }} < ig_settings.json || true
 
-      - name: Trigger next run OR refresh login on session failure
+      - name: Refresh login on session failure
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
@@ -69,7 +71,5 @@ jobs:
             echo "Session expired — triggering login.yml to refresh"
             gh workflow run login.yml --repo ${{ github.repository }} || true
           else
-            echo "Triggering next replier cycle"
-            sleep 10
-            gh workflow run replier.yml --repo ${{ github.repository }} || true
+            echo "Replier completed OK — next run via cron in 30 min"
           fi
