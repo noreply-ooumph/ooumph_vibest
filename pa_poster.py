@@ -10,20 +10,15 @@ load_dotenv(Path(__file__).parent / ".env", override=True)
 
 import anthropic
 from datetime import datetime
-from ig_brain.config import ANTHROPIC_KEY, POSTING_HOURS
+from ig_brain.config import ANTHROPIC_KEY
 from ig_brain.planner import generate_content_plan
 from ig_brain.poster import run_poster
 from ig_brain.memory import load_posted
 
 client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
-now    = datetime.now()
+now    = datetime.utcnow()
 
-print(f"[POSTER] Running at {now.strftime('%Y-%m-%d %H:%M')} IST")
-
-# Check if this is a posting hour
-if now.hour not in POSTING_HOURS:
-    print(f"[POSTER] Not a posting hour (schedule: {POSTING_HOURS}). Exiting.")
-    sys.exit(0)
+print(f"[POSTER] Running at {now.strftime('%Y-%m-%d %H:%M')} UTC")
 
 # 1 post per day — exit if already posted today
 posted = load_posted()
