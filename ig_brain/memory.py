@@ -52,7 +52,6 @@ def update_post_metrics(shortcode: str, likes: int, comments: int):
 
 def evolve_strategy(client) -> str:
     """Re-evaluate content strategy based on post performance."""
-    import anthropic
     posts = load_posted()
     mem   = load_memory()
     if len(posts) < 3:

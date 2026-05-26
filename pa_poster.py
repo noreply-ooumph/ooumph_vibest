@@ -8,14 +8,14 @@ from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent / ".env", override=True)
 
-import anthropic
 from datetime import datetime
-from ig_brain.config import ANTHROPIC_KEY
+from ig_brain.config import GROQ_KEY
+from ig_brain.groq_client import GroqClientWrapper
 from ig_brain.planner import generate_content_plan
 from ig_brain.poster import run_poster
 from ig_brain.memory import load_posted
 
-client = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
+client = GroqClientWrapper(api_key=GROQ_KEY)
 now    = datetime.utcnow()
 
 print(f"[POSTER] Running at {now.strftime('%Y-%m-%d %H:%M')} UTC")
