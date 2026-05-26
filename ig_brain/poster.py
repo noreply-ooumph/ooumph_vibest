@@ -29,6 +29,10 @@ def get_client() -> Client:
             print("  --> login.yml will be triggered by poster.yml on exit code 2")
             sys.exit(2)
         except Exception as e:
+            err_str = str(e)
+            if "Challenge" in err_str or "challenge" in err_str or "STEP_NAME" in err_str:
+                print(f"  Session challenged — need fresh login: {err_str[:120]}")
+                sys.exit(2)
             print(f"  Session validation warning: {e} — continuing anyway")
     else:
         cl.login(

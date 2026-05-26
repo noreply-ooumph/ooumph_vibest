@@ -9,11 +9,11 @@ from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).parent / ".env", override=True)
 
-import anthropic
+from ig_brain.groq_client import GroqClientWrapper
 from instagrapi import Client
 from instagrapi.exceptions import LoginRequired, ChallengeRequired
 
-from ig_brain.config import ANTHROPIC_KEY, ACCOUNT_USERNAME, ACCOUNT_USER_ID, REPLY_SLEEP_MIN, REPLY_SLEEP_MAX, REPLIED_FILE
+from ig_brain.config import GROQ_KEY, ACCOUNT_USERNAME, ACCOUNT_USER_ID, REPLY_SLEEP_MIN, REPLY_SLEEP_MAX, REPLIED_FILE
 from ig_brain.replier import load_replied, save_replied
 
 SETTINGS_FILE   = Path(__file__).parent / "ig_settings.json"
@@ -58,7 +58,7 @@ def generate_reply_text(client_ai, comment: str, caption: str) -> str:
     )
     return resp.content[0].text.strip().strip('"').strip("'")
 
-client_ai = anthropic.Anthropic(api_key=ANTHROPIC_KEY)
+client_ai = GroqClientWrapper(api_key=GROQ_KEY)
 CHECKS = 5
 INTERVAL = 60
 
